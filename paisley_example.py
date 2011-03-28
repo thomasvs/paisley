@@ -3,7 +3,7 @@ import paisley
 import sys
 from twisted.internet import reactor, defer
 from twisted.python import log
-from twisted.web import client
+from twisted.web import client, error, http
 
 client.HTTPClientFactory.noisy = False
 
@@ -16,7 +16,17 @@ def test():
     d = foo.createDB('mydb')
     wfd = defer.waitForDeferred(d)
     yield wfd
-    print wfd.getResult()
+
+    try:
+        print wfd.getResult()
+    except error.Error, e:
+        # FIXME: not sure why Error.status is a str compared to http constants
+        if e.status == str(http.UNAUTHORIZED):
+            print "\nError: not allowed to create databases"
+            reactor.stop()
+            return
+        else:
+            raise
 
     print "\nList databases on server:"
     d = foo.listDB()
