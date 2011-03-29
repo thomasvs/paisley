@@ -34,18 +34,29 @@ class ViewTests(TestCase):
         Test that a querying a view gives us an iterable of our user defined
         objects.
         """
-        fc = StubCouch(views={'all_tags': [{'key':'foo', 'value':3},
-                                           {'key':'bar', 'value':2},
-                                           {'key':'baz', 'value':1}]})
+        fc = StubCouch(views={'all_tags': {
+            'total_rows': 3,
+            'offset': 0,
+            'rows': [
+                {'key':'foo', 'value':3},
+                {'key':'bar', 'value':2},
+                {'key':'baz', 'value':1},
+            ]}})
 
         v = View(fc, None, None, 'all_tags', Tag)
 
         def _checkResults(results):
-            self.assertEquals(len(list(results)), 3)
+            results = list(results)
+            self.assertEquals(len(results), 3)
 
+            # this used to be not executed because it worked on the empty
+            # generator; so guard against that
+            looped = False
             for tag in results:
+                looped = True
                 self.assertIn({'key':tag.name, 'value':tag.count},
-                              fc._views['all_tags'])
+                              fc._views['all_tags']['rows'])
+            self.failUnless(looped)
 
         d = v.queryView()
         d.addCallback(_checkResults)

@@ -19,8 +19,12 @@ class View(object):
         self._viewId = viewId
         self._objectFactory = objectFactory
 
-    def _mapObjects(self, results):
-        for x in results:
+    def _mapObjects(self, result):
+        # result is a dict:
+        # rows -> dict with id, key, value, [doc?]
+        # total_rows
+        # offset
+        for x in result['rows']:
             obj = self._objectFactory()
             obj.fromDict(x)
             yield obj
