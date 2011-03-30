@@ -411,6 +411,14 @@ class Document(Mapping):
             return cls.wrap(data)
         return db.view(viewname, wrapper=_wrapper, **options)
 
+    def fromDict(self, d):
+        """
+        Set the object from the given result dictionary obtained from CouchDB.
+        """
+        # FIXME: this is poking at internals of python-couchdb
+        # FIXME: do we need copy ?
+        self._data = d.copy()
+        return
 
 class TextField(Field):
     """Mapping field for string values."""
