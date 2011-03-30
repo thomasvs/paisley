@@ -6,9 +6,8 @@
 Object mapping view API.
 """
 
-
 class View(object):
-    def __init__(self, couch, dbName, docId, viewId, objectFactory):
+    def __init__(self, couch, dbName, docId, viewId, objectFactory, **options):
         """
         objectFactory should implement fromDict, taking a dictionary containing
         key and value.
@@ -18,6 +17,7 @@ class View(object):
         self._docId = docId
         self._viewId = viewId
         self._objectFactory = objectFactory
+        self._options = options
 
     def _mapObjects(self, result):
         # result is a dict:
@@ -29,11 +29,13 @@ class View(object):
             obj.fromDict(x)
             yield obj
 
+    # how do we know if it is bound already ?
     def queryView(self):
         d = self._couch.openView(
             self._dbName,
             self._docId,
             self._viewId,
+            **self._options
             )
         d.addCallback(self._mapObjects)
         return d
