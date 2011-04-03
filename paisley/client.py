@@ -1,4 +1,4 @@
-# -*- test-case-name: test_paisley -*-
+# -*- test-case-name: paisley.test_paisley -*-
 # Copyright (c) 2007-2008
 # See LICENSE for details.
 
@@ -19,7 +19,7 @@ from StringIO import StringIO
 from urllib import urlencode, quote
 from zope.interface import implements
 
-from twisted.internet import reactor
+from twisted.internet import reactor, defer
 from twisted.web._newclient import ResponseDone
 from twisted.web import error as tw_error
 from twisted.web.client import Agent
@@ -112,7 +112,7 @@ class CouchDB(object):
     CouchDB client: hold methods for accessing a couchDB.
     """
 
-    def __init__(self, host, port=5984, dbName=None, username=None, password=None, disable_log=False):
+    def __init__(self, host, port=5984, dbName=None, username=None, password=None, disable_log=False, cache=None):
         """
         Initialize the client for given host.
 
@@ -131,6 +131,7 @@ class CouchDB(object):
         self.port = int(port)
         self.username = username
         self.password =password
+        self._cache = cache
         self.url_template = "http://%s:%s%%s" % (self.host, self.port)
         if dbName is not None:
             self.bindToDB(dbName)
@@ -263,9 +264,23 @@ class CouchDB(object):
             uri += "/%s" % quote(attachment)
             # No parsing
             return  self.get(uri, descr='openDoc')
-        return self.get(uri, descr='openDoc'
-            ).addCallback(self.parseResult)
 
+        # just the document
+        if self._cache:
+            try:
+                return self._cache.get(docId)
+            except:
+                pass
+
+        return self.get(uri, descr='openDoc'
+            ).addCallback(self.parseResult
+            ).addCallback(self._cacheResult, docId)
+
+    def _cacheResult(self, value, docId):
+        if self._cache:
+            self._cache.store(docId, value)
+
+        return value
 
     def addAttachments(self, document, attachments):
         """
@@ -451,3 +466,121 @@ class CouchDB(object):
         self.log.debug("[%s:%s%s] DELETE %s",
                        self.host, self.port, short_print(uri), descr)
         return self._getPage(uri, method="DELETE")
+
+    # map to an object
+    def map(self, dbName, docId, objectFactory):
+        """
+        @type docId: str
+        """
+        # return cached version if in cache
+        try:
+            return defer.succeed(self._cache.get(dbName, docId))
+        except:
+            d = self.openDoc(dbName, str(docId))
+            def cb(doc):
+                obj = objectFactory()
+                obj.fromDict(doc)
+                if cache:
+                    self._cache.mapped(dbName, docId, obj)
+                return obj
+            d.addCallback(cb)
+            return d
+
+class Cache(object):
+    def store(key, value, type='post'):
+        """
+        Store a key/value pair in the cache.
+        
+        @param key:   key to store value under
+        @type  key:   C{str}
+        @param value: the value to be stored
+        @type  value: C{object}
+
+        @rtype:   L{defer.Deferred}
+        @returns: a deferred firing the value on success.
+        """
+        raise NotImplementedError
+    
+    def get(key):
+        """
+        Retrieve a key/value pair from the cache.
+        
+        @param key:   key to retrieve value with
+        @type  key:   C{str}
+        
+        
+        @rtype:   L{defer.Deferred}
+        @returns: a deferred firing the value.
+        """
+        raise NotImplementedError
+    
+    def delete(key):
+        """
+        Remove a key/value pair from the cache.
+
+        @param key:   key to delete value for
+        @type  key:   C{str}
+        
+        @rtype:   L{defer.Deferred}
+        @returns: a deferred firing True on sucess.
+        """
+        raise NotImplementedError
+
+    # FIXME: can I rewrite this so that whether or not we map is pluggable ?
+    def mapped(self, key, obj):
+        raise NotImplementedError
+
+    def getMapped(self, key):
+        raise NotImplementedError
+
+class MemoryCache(Cache):
+    """
+    I cache parsed docs in memory.
+    """
+
+    def __init__(self, docs=True, objects=True):
+        self._docCache = {} # dict of dbName to dict of id to doc
+        self._objCache = {} # dict of dbName to dict of id to doc
+
+        self.lookups = 0
+        self.hits = 0
+        self.cached = 0
+
+        self._docs = True
+        self._objects = True
+
+    def mapped(self, key, obj):
+        if not self._objects:
+            return
+
+        if not dbName in self._objCache.keys():
+            self._objCache[dbName] = {}
+
+        if not self._objCache.has_key(key):
+            self._objCache[key] = obj
+            self.cached += 1
+    
+    def store(self, key, value, type='post'):
+        self._docCache[key] = value
+        self.cached += 1
+        return defer.succeed(True)
+
+
+    def get(self, key):
+        self.lookups += 1
+        ret = self._docCache[key]
+        self.hits += 1
+        return defer.succeed(ret)
+
+    def delete(self, key):
+        deleted = False
+        for d in [self._docCache, self._objCache]:
+            try:
+                del d[key]
+                deleted = True
+            except:
+                pass
+        if deleted:
+            self.cached -= 1
+        return defer.succeed(True)
+
