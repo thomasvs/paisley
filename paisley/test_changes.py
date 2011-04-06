@@ -15,6 +15,7 @@ from paisley import test_util
 TEST_CHANGES = """
 {"seq":3934,"id":"cc4fadc922f11ffb5e358d5da2760de2","changes":[{"rev":"1-1e379f46917bc2fc9b9562a58afde75a"}]}
 {"last_seq":3934}
+{'deleted': True, 'changes': [{'rev': '2-5e8bd6dae4307ca6f8fcf8afa53e6bc4'}], 'id': '27e74762ad0e64d4094f6feea800a826', 'seq': 34}
 """
 
 class FakeNotifier(object):
