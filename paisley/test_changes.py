@@ -14,8 +14,9 @@ from paisley import test_util
 
 TEST_CHANGES = """
 {"seq":3934,"id":"cc4fadc922f11ffb5e358d5da2760de2","changes":[{"rev":"1-1e379f46917bc2fc9b9562a58afde75a"}]}
+{"changes": [{"rev": "12-7bfdb7016aa8aa0dd0279d3324b524d1"}], "id": "_design/couchdb", "seq": 5823}
 {"last_seq":3934}
-{'deleted': True, 'changes': [{'rev': '2-5e8bd6dae4307ca6f8fcf8afa53e6bc4'}], 'id': '27e74762ad0e64d4094f6feea800a826', 'seq': 34}
+{"deleted": true, "changes": [{"rev": "2-5e8bd6dae4307ca6f8fcf8afa53e6bc4"}], "id": "27e74762ad0e64d4094f6feea800a826", "seq": 34}
 """
 
 class FakeNotifier(object):
@@ -33,8 +34,9 @@ class TestStubChangeReceiver(unittest.TestCase):
         for line in TEST_CHANGES.split("\n"):
             receiver.lineReceived(line)
 
-        self.assertEquals(len(notifier.changes), 1)
+        self.assertEquals(len(notifier.changes), 3)
         self.assertEquals(notifier.changes[0]["seq"], 3934)
+        self.assertEquals(notifier.changes[2]["deleted"], True)
 
 class TestCacheChangeReceiver(test_util.CouchDBTestCase):
     def setUp(self):

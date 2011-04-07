@@ -70,7 +70,6 @@ class ChangeNotifier:
 
     # called by receiver
     def changed(self, change):
-        print 'notifier: changed', change
         for cache in self._caches:
             cache.delete(change['id'])
 
