@@ -545,7 +545,7 @@ class CouchDB(object):
 
     def mapped(self, key, obj):
         if self._cache:
-            self._cache.mapped(docId, obj)
+            self._cache.mapped(key, obj)
 
 class Cache(object):
     def store(key, value, type='post'):
@@ -613,9 +613,6 @@ class MemoryCache(Cache):
     def mapped(self, key, obj):
         if not self._objects:
             return
-
-        if not dbName in self._objCache.keys():
-            self._objCache[dbName] = {}
 
         if not self._objCache.has_key(key):
             self._objCache[key] = obj
