@@ -28,7 +28,7 @@ class View(object):
             obj = self._objectFactory()
             if options.get('include_docs', False):
                 obj.fromDict(x['doc'])
-                self._couch.mapped(self._dbName, x['id'], obj)
+                self._couch.mapped(x['id'], obj)
             else:
                 obj.fromDict(x)
             yield obj
