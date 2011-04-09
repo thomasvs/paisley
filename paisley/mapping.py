@@ -68,7 +68,7 @@ from couchdb.design import ViewDefinition
 __all__ = ['Mapping', 'Document', 'Field', 'TextField', 'FloatField',
            'IntegerField', 'LongField', 'BooleanField', 'DecimalField',
            'DateField', 'DateTimeField', 'TimeField', 'DictField', 'ListField',
-           'ViewField']
+           'TupleField', 'ViewField']
 __docformat__ = 'restructuredtext en'
 
 DEFAULT = object()
@@ -747,3 +747,64 @@ class ListField(Field):
 
         def pop(self, *args):
             return self.field._to_python(self.list.pop(*args))
+
+class TupleField(Field):
+    """Field type for tuple of other fields, with possibly different types.
+
+    >>> from couchdb import Server
+    >>> server = Server('http://localhost:5984/')
+    >>> db = server.create('python-tests')
+
+    >>> class Post(Document):
+    ...     title = TextField()
+    ...     content = TextField()
+    ...     pubdate = DateTimeField(default=datetime.now)
+    ...     comments = ListField(TupleField((
+    ...         TextField(),
+    ...         TextField(),
+    ...         DateTimeField()
+    ...     )))
+
+    >>> post = Post(title='Foo bar')
+    >>> post.comments.append(('myself', 'Bla bla',
+    ...                      datetime.now()))
+    >>> len(post.comments)
+    1
+    >>> post.store(db) #doctest: +ELLIPSIS
+    <Post ...>
+    >>> post = Post.load(db, post.id)
+    >>> comment = post.comments[0]
+    >>> comment[0]
+    u'myself'
+    >>> comment[1]
+    u'Bla bla'
+    >>> comment[2] #doctest: +ELLIPSIS
+    datetime.datetime(...)
+
+    >>> del server['python-tests']
+    """
+
+    def __init__(self, fields, name=None, default=None):
+        Field.__init__(self, name=name,
+            default=default or (None, ) * len(fields))
+
+        res = []
+        for field in fields:
+            if type(field) is type:
+                if issubclass(field, Field):
+                    field = field()
+                elif issubclass(field, Mapping):
+                    field = DictField(field)
+            res.append(field)
+        self.fields = tuple(res)
+
+    def _to_python(self, value):
+        return tuple([self.fields[i]._to_python(m)
+            for i, m in enumerate(value)])
+
+    def _to_json(self, value):
+        # value is a tuple with python values to be converted
+        assert len(self.fields) == len(value)
+        return [self.fields[i]._to_json(m) for i, m in enumerate(value)]
+
+
