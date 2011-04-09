@@ -474,17 +474,20 @@ class CouchDB(object):
         """
         # return cached version if in cache
         try:
-            return defer.succeed(self._cache.get(dbName, docId))
+            return defer.succeed(self._cache.get(docId))
         except:
             d = self.openDoc(dbName, str(docId))
             def cb(doc):
                 obj = objectFactory()
                 obj.fromDict(doc)
-                if cache:
-                    self._cache.mapped(dbName, docId, obj)
+                self.mapped(docId, obj)
                 return obj
             d.addCallback(cb)
             return d
+
+    def mapped(self, key, obj):
+        if self._cache:
+            self._cache.mapped(docId, obj)
 
 class Cache(object):
     def store(key, value, type='post'):
