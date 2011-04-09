@@ -19,14 +19,18 @@ class View(object):
         self._objectFactory = objectFactory
         self._options = options
 
-    def _mapObjects(self, result):
+    def _mapObjects(self, result, **options):
         # result is a dict:
         # rows -> dict with id, key, value, [doc?]
         # total_rows
         # offset
         for x in result['rows']:
             obj = self._objectFactory()
-            obj.fromDict(x)
+            if options.get('include_docs', False):
+                obj.fromDict(x['doc'])
+                self._couch.mapped(self._dbName, x['id'], obj)
+            else:
+                obj.fromDict(x)
             yield obj
 
     # how do we know if it is bound already ?
@@ -37,5 +41,5 @@ class View(object):
             self._viewId,
             **self._options
             )
-        d.addCallback(self._mapObjects)
+        d.addCallback(self._mapObjects, **self._options)
         return d
