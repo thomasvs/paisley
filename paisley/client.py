@@ -304,6 +304,8 @@ class CouchDB(object):
             document.
         @type attachment: C{str}
         """
+        # FIXME: where should we enforce unicode ?
+        docId = unicode(docId)
         # Responses: {u'_rev': -1825937535, u'_id': u'mydoc', ...}
         # 404 Object Not Found
 
@@ -599,12 +601,12 @@ class CouchDB(object):
             self._cache.mapped(key, obj)
 
 class Cache(object):
-    def store(key, value, type='post'):
+    def store(key, value, operation='post'):
         """
         Store a key/value pair in the cache.
         
         @param key:   key to store value under
-        @type  key:   C{str}
+        @type  key:   C{unicode}
         @param value: the value to be stored
         @type  value: C{object}
 
@@ -618,20 +620,32 @@ class Cache(object):
         Retrieve a key/value pair from the cache.
         
         @param key:   key to retrieve value with
-        @type  key:   C{str}
+        @type  key:   C{unicode}
         
         
         @rtype:   L{defer.Deferred}
         @returns: a deferred firing the value.
         """
         raise NotImplementedError
-    
+
+    def getObject(key):
+        """
+        Retrieve a key/object pair from the cache.
+
+        @param key:   key to retrieve value with
+        @type  key:   C{unicode}
+
+        @rtype:   L{defer.Deferred}
+        @returns: a deferred firing the value.
+        """
+        raise NotImplementedError
+
     def delete(key):
         """
         Remove a key/value pair from the cache.
 
         @param key:   key to delete value for
-        @type  key:   C{str}
+        @type  key:   C{unicode}
         
         @rtype:   L{defer.Deferred}
         @returns: a deferred firing True on sucess.
@@ -662,6 +676,8 @@ class MemoryCache(Cache):
         self._objects = True
 
     def mapped(self, key, obj):
+        assert type(key) is unicode, 'key %r is not unicode' % key
+        assert type(obj) is not defer.Deferred
         if not self._objects:
             return
 
@@ -669,7 +685,8 @@ class MemoryCache(Cache):
             self._objCache[key] = obj
             self.cached += 1
     
-    def store(self, key, value, type='post'):
+    def store(self, key, value, operation='post'):
+        assert type(key) is unicode, 'key %r is not unicode' % key
         self._docCache[key] = value
         self.cached += 1
         return defer.succeed(True)
