@@ -26,10 +26,12 @@ class View(object):
         # offset
         for x in result['rows']:
             obj = self._objectFactory()
-            if options.get('include_docs', False):
+            if options.get('include_docs', False) is True:
                 obj.fromDict(x['doc'])
-                self._couch.mapped(x['id'], obj)
+                # FIXME: why does this not arrive as unicode ?
+                self._couch.mapped(unicode(x['id']), obj)
             else:
+                # if we don't have the doc, don't cache
                 obj.fromDict(x)
             yield obj
 
