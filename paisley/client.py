@@ -530,13 +530,15 @@ class CouchDB(object):
     # map to an object
     def map(self, dbName, docId, objectFactory):
         """
-        @type docId: str
+        @type docId: unicode
         """
         # return cached version if in cache
+        assert type(docId) is unicode, 'docId %r is not unicode' % docId
+
         try:
-            return defer.succeed(self._cache.get(docId))
-        except:
-            d = self.openDoc(dbName, str(docId))
+            return self._cache.getObject(docId)
+        except KeyError:
+            d = self.openDoc(dbName, docId)
             def cb(doc):
                 obj = objectFactory()
                 obj.fromDict(doc)
@@ -646,6 +648,13 @@ class MemoryCache(Cache):
         ret = self._docCache[key]
         self.hits += 1
         return defer.succeed(ret)
+
+    def getObject(self, key):
+        self.lookups += 1
+        ret = self._objCache[key]
+        self.hits += 1
+        return defer.succeed(ret)
+
 
     def delete(self, key):
         deleted = False
