@@ -12,6 +12,7 @@ from twisted.trial import unittest
 
 from paisley import client
 
+
 class CouchDBTestCase(unittest.TestCase):
     """
     I am a TestCase base class for tests against a real CouchDB server.
@@ -20,6 +21,7 @@ class CouchDBTestCase(unittest.TestCase):
     @ivar  db: the CouchDB client
     @type  db: L{paisley.client.CouchDB}
     """
+
     def setUp(self):
         self.tempdir = tempfile.mkdtemp(suffix='.paisley.test')
 
@@ -28,7 +30,7 @@ class CouchDBTestCase(unittest.TestCase):
         handle = open(path)
 
         conf = handle.read() % {
-            'tempdir': self.tempdir
+            'tempdir': self.tempdir,
         }
 
         confPath = os.path.join(self.tempdir, 'test.ini')
@@ -53,8 +55,9 @@ class CouchDBTestCase(unittest.TestCase):
         while os.stat(logPath).st_size == 0:
             pass
 
-        PORT_RE = re.compile('Apache CouchDB has started on http://127.0.0.1:(?P<port>\d+)')
-        
+        PORT_RE = re.compile(
+            'Apache CouchDB has started on http://127.0.0.1:(?P<port>\d+)')
+
         handle = open(logPath)
         line = handle.read()
         m = PORT_RE.search(line)
@@ -70,5 +73,3 @@ class CouchDBTestCase(unittest.TestCase):
 
         # clean up
         os.system("rm -rf %s" % self.tempdir)
-
-
