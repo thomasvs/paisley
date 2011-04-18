@@ -36,7 +36,7 @@ timeout = 600 ; number of seconds before automatic logout
 auth_cache_size = 50 ; size is number of cache entries
 
 [query_servers]
-; javascript = %(bindir)s/bin/couchjs_dev %(datadir)s/server/main.js
+; javascript = bindir/couchjs_dev datadir/server/main.js
 
 ; Changing reduce_limit to false will disable reduce_limit.
 ; If you think you're hitting reduce_limit with a "good" reduce function,
@@ -62,9 +62,9 @@ auth_cache={couch_auth_cache, start_link, []}
 
 [httpd_global_handlers]
 / = {couch_httpd_misc_handlers, handle_welcome_req, <<"Welcome">>}
-; favicon.ico = {couch_httpd_misc_handlers, handle_favicon_req, "%(datadir)s/www"}
+; favicon.ico = {couch_httpd_misc_handlers, handle_favicon_req, "datadir/www"}
 
-; _utils = {couch_httpd_misc_handlers, handle_utils_dir_req, "%(datadir)s/www"}
+; _utils = {couch_httpd_misc_handlers, handle_utils_dir_req, "datadir/www"}
 _all_dbs = {couch_httpd_misc_handlers, handle_all_dbs_req}
 _active_tasks = {couch_httpd_misc_handlers, handle_task_status_req}
 _config = {couch_httpd_misc_handlers, handle_config_req}
