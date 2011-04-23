@@ -11,7 +11,7 @@ Tests for the object mapping view API.
 from twisted.trial.unittest import TestCase
 from twisted.internet.defer import succeed
 
-from . import test_util
+from paisley.test import test_util
 
 from paisley.views import View
 

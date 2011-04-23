@@ -24,7 +24,7 @@ from twisted.web import resource, server
 
 import paisley
 
-from . import test_util
+from paisley.test import test_util
 
 class TestableCouchDB(paisley.CouchDB):
     """

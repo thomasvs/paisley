@@ -11,7 +11,7 @@ from twisted.trial import unittest
 
 from paisley import client, changes
 
-from . import test_util
+from paisley.test import test_util
 
 
 class FakeNotifier(object):
