@@ -32,7 +32,8 @@ class MemoryCacheTestCase(test_util.CouchDBTestCase):
         test_util.CouchDBTestCase.setUp(self)
 
         self.cache = client.MemoryCache()
-        self.db = client.CouchDB('localhost', self.port, cache=self.cache)
+        self.db = client.CouchDB('localhost', self.wrapper.port,
+            cache=self.cache)
 
         d = defer.Deferred()
         d.addCallback(lambda _: self.db.createDB('test'))
