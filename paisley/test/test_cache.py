@@ -1,10 +1,11 @@
-# -*- test-case-name: paisley.test_cache -*-
+# -*- Mode: Python; test-case-name: paisley.test.test_cache -*-
+# vi:si:et:sw=4:sts=4:ts=4
 
-# Copyright (c) 2007-2008
+# Copyright (c) 2011
 # See LICENSE for details.
 
 """
-Test for couchdb client.
+Test for caching.
 """
 
 try:
@@ -25,7 +26,8 @@ from twisted.web import resource, server
 
 import paisley
 
-from paisley import client, test_util
+from paisley import client
+from paisley.test import test_util
 
 class MemoryCacheTestCase(test_util.CouchDBTestCase):
     def setUp(self):
