@@ -20,7 +20,7 @@ class MemoryCacheTestCase(util.CouchDBTestCase):
         util.CouchDBTestCase.setUp(self)
 
         self.cache = client.MemoryCache()
-        self.db = client.CouchDB('localhost', port=self.db.port,
+        self.db = client.CouchDB('localhost', port=self.wrapper.port,
             username='testpaisley', password='testpaisley',
             cache=self.cache)
 
