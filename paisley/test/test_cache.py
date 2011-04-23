@@ -1,6 +1,7 @@
-# -*- test-case-name: paisley.test_cache -*-
+# -*- Mode: Python; test-case-name: paisley.test.test_cache -*-
+# vi:si:et:sw=4:sts=4:ts=4
 
-# Copyright (c) 2007-2008
+# Copyright (c) 2011
 # See LICENSE for details.
 
 """
