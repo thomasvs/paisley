@@ -458,6 +458,11 @@ class ConnectedCouchDBTestCase(TestCase):
         d.addCallback(cb)
         return d
 
+
+class Tag(object):
+    def fromDict(self, d):
+        pass
+
 class RealCouchDBTestCase(test_util.CouchDBTestCase):
     def testDB(self):
         d = defer.Deferred()
@@ -598,6 +603,17 @@ class UnicodeTestCase(test_util.CouchDBTestCase):
 
         d.addCallback(lambda r: self.db.deleteDoc(
             'test', r[u'_id'], r[u'_rev']))
+
+        d.callback(None)
+        return d
+
+    def testMapNoCache(self):
+        d = defer.Deferred()
+
+        d.addCallback(lambda _: self.db.createDB('test'))
+        d.addCallback(lambda _: self.db.saveDoc('test', {'type': 'tag'}))
+        # FIXME: remove unicode here
+        d.addCallback(lambda r: self.db.map('test', unicode(r['id']), Tag))
 
         d.callback(None)
         return d

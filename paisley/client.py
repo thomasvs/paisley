@@ -537,7 +537,9 @@ class CouchDB(object):
 
         try:
             return self._cache.getObject(docId)
-        except KeyError:
+        except (KeyError, AttributeError):
+            # KeyError when docId does not exist
+            # AttributeError when we don't have a cache
             d = self.openDoc(dbName, docId)
             def cb(doc):
                 obj = objectFactory()
