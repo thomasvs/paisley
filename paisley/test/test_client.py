@@ -610,7 +610,6 @@ class UnicodeTestCase(test_util.CouchDBTestCase):
     def testMapNoCache(self):
         d = defer.Deferred()
 
-        d.addCallback(lambda _: self.db.createDB('test'))
         d.addCallback(lambda _: self.db.saveDoc('test', {'type': 'tag'}))
         # FIXME: remove unicode here
         d.addCallback(lambda r: self.db.map('test', unicode(r['id']), Tag))
