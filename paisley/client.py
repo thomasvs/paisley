@@ -528,7 +528,7 @@ class CouchDB(object):
         return self._getPage(uri, method="DELETE")
 
     # map to an object
-    def map(self, dbName, docId, objectFactory):
+    def map(self, dbName, docId, objectFactory, *args, **kwargs):
         """
         @type docId: unicode
         """
@@ -542,7 +542,7 @@ class CouchDB(object):
             # AttributeError when we don't have a cache
             d = self.openDoc(dbName, docId)
             def cb(doc):
-                obj = objectFactory()
+                obj = objectFactory(*args, **kwargs)
                 obj.fromDict(doc)
                 self.mapped(docId, obj)
                 return obj
