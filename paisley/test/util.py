@@ -14,7 +14,7 @@ import ConfigParser
 
 from twisted.trial import unittest
 
-from paisley import client
+from paisley import client, pjson
 
 
 class CouchDBWrapper(object):
@@ -106,6 +106,251 @@ class CouchDBConfig(object):
         self.parser = ConfigParser.ConfigParser()
         self.parser.read(paths)
 
+    def query_server(self, language):
+        for l, argString in self.parser.items('query_servers'):
+            if l == language:
+                return argString
+
+        raise KeyError('No query_server found for %s' % language)
+
+
+class QueryServerException(Exception):
+    def __init__(self, output):
+        self.args = (output, )
+        self.output = output
+
+class JSQueryServerException(QueryServerException):
+    def __init__(self, output, exceptionType, message, line, docId):
+        self.args = (output, exceptionType, message, line, docId)
+        self.output = output
+        self.exceptionType = exceptionType
+        self.message = message
+        self.line = line
+        self.docId = docId
+
+
+class CouchQSWrapper(object):
+    """
+    I wrap an external CouchDB query server instance started and stopped for
+    testing.
+
+    See http://wiki.apache.org/couchdb/View_server
+
+    @ivar language: the language this query server is for
+    @ivar process:  the CouchDB query server process
+    @type process:  L{subprocess.Popen}
+    """
+    language = None
+
+    def __init__(self):
+        self.config = CouchDBConfig()
+        self.args = self.config.query_server(self.language).split()
+
+    def start(self):
+        try:
+            self.process = subprocess.Popen(
+                self.args, env=None,
+                close_fds=True,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except OSError:
+            print 'Could not start', self.args
+            raise
+
+
+    ### query_server protocol implementation
+    #   these methods implement the basic primitives, stripping the
+    #   trailing newline from output
+    def reset(self):
+        self.process.stdin.write('["reset"]\n')
+        out = self.process.stdout.readline()
+        if out != 'true\n':
+            raise QueryServerException((out, ))
+
+    def add_fun(self, func):
+        func = self.processFunction(func)
+
+        func = '\\n'.join(func.split('\n'))
+
+        self.process.stdin.write('["add_fun", "%s"]\n' % func)
+        out = self.process.stdout.readline()
+        if out != 'true\n':
+            raise QueryServerException((out, ))
+
+    def map_doc(self, doc):
+        doc = ' '.join(doc.split('\n'))
+        self.process.stdin.write('["map_doc", %s]\n' % doc)
+        out = self.process.stdout.readline().strip()
+        self.parseException(out)
+
+        return out
+
+    def reduce(self, func, results):
+        """
+        @param results: comma-seperated list of [[key, id-of-doc], value]
+        @type  results: str
+        """
+        func = self.processFunction(func)
+
+        func = '\\n'.join(func.split('\n'))
+
+        line = '["reduce", ["%s"], %s]\n' % (func, results)
+        self.process.stdin.write(line)
+        out = self.process.stdout.readline().strip()
+        self.parseException(out)
+
+        return out
+
+    def rereduce(self, func, values):
+        """
+        @param values: comma-seperated list of values
+        @type  values: str
+        """
+        func = self.processFunction(func)
+
+        func = '\\n'.join(func.split('\n'))
+
+        line = '["rereduce", ["%s"], %s]\n' % (func, values)
+        self.process.stdin.write(line)
+        out = self.process.stdout.readline().strip()
+        self.parseException(out)
+
+        return out
+
+    ### methods for subclasses
+    def parseException(self, line):
+        pass
+
+    def processFunction(self, func):
+        """
+        Process the given text input for a function.
+
+        This lets implementation expand functions before sending them.
+
+        @type  func: the function to process
+
+        @rtype: C{str}
+        """
+        pass
+
+    ### public interface
+
+    def map(self, func, doc):
+        """
+        Map the given document with the given function.
+
+        @param func: the source code for the map function.
+        @type  func: C{str}
+        @type  doc:  the document to map
+        @type  doc:  C{unicode}
+
+        @rtype: C{unicode}
+        """
+        self.reset()
+        self.add_fun(func)
+
+        return self.map_doc(doc)
+
+    def mapreduce(self, mapFunc, reduceFunc, docs):
+        self.reset()
+        self.add_fun(mapFunc)
+
+        ret = []
+        for doc in docs:
+            ret.append(self.map_doc(doc))
+
+        return self.reduce(reduceFunc, ret)
+
+
+    def stop(self):
+        self.process.terminate()
+
+class CouchJSWrapper(CouchQSWrapper):
+    """
+    """
+
+    language = 'javascript'
+    path = None
+
+    ### subclass implementations
+    def parseException(self, line):
+        obj = pjson.loads(line)
+        if isinstance(obj, list):
+            if obj[0] == 'log':
+                message = obj[1]
+                self.parseMessage(message)
+
+
+    def parseMessage(self, message):
+        import re
+        matcher = re.compile(r'''
+            ^function\sraised\sexception\s\(new\s
+            (?P<type>\w*)
+            \(
+            "(?P<message>[^"]*)",\s
+            "(?P<debug>[^"]*)",\s
+            (?P<line>\d*)\)\)\s
+            with\sdoc._id\s
+            (?P<doc_id>.*)$
+        ''', re.VERBOSE)
+        m = matcher.search(message)
+        if m:
+            raise JSQueryServerException(output=message,
+                exceptionType=m.group('type'),
+                message=m.group('message'),
+                line=int(m.group('line')),
+                docId=m.group('doc_id'))
+
+
+    def processFunction(self, func):
+        # process using couchapp if it exists
+        # this lets us use !code directives
+        try:
+            from couchapp import macros
+            func = macros.run_code_macros(func, self.path)
+            return func
+        except ImportError:
+            pass
+
+        return func
+
+    ### public API
+    def mapPath(self, path, doc):
+        """
+        Map the given document with the map function in the given path.
+        """
+        fullPath = os.path.join(self.path, path)
+        func = open(fullPath).read()
+
+        return self.map(func, doc)
+
+    def mapReducePath(self, mapPath, reducePath, docs):
+        """
+        Map the given documents with the map/reduce functions in the given path.
+        """
+        fullMapPath = os.path.join(self.path, mapPath)
+        mapFunc = open(fullMapPath).read()
+        fullReducePath = os.path.join(self.path, reducePath)
+        reduceFunc = open(fullReducePath).read()
+
+        return self.mapreduce(mapFunc, reduceFunc, docs)
+
+
+class CouchQSTestCase(unittest.TestCase):
+    """
+    I am a TestCase base class for tests against a real CouchDB view server.
+    I start a server during setup and stop it during teardown.
+    """
+
+    language = 'javascript'
+    QueryServerClass = CouchQSWrapper
+
+    def setUp(self):
+        self.wrapper = self.QueryServerClass()
+        self.wrapper.start()
+
+    def tearDown(self):
+        self.wrapper.stop()
 
 class CouchDBTestCase(unittest.TestCase):
     """
