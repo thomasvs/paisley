@@ -1,4 +1,4 @@
-# -*- Mode: Python -*-
+# -*- Mode: Python; test-case-name: paisley.test.test_util -*-
 # vi:si:et:sw=4:sts=4:ts=4
 
 # Copyright (c) 2007-2008
@@ -9,6 +9,8 @@ import os
 import tempfile
 import subprocess
 import time
+import commands
+import ConfigParser
 
 from twisted.trial import unittest
 
@@ -88,6 +90,21 @@ stderr:
         self.process.terminate()
 
         os.system("rm -rf %s" % self.tempdir)
+
+
+class CouchDBConfig(object):
+    """
+    I parse couchdb configs.
+
+    @ivar parser: a config parser, loaded with couchdb's configuration
+    @type parser: L{ConfigParser.ConfigParser}
+    """
+
+    def __init__(self):
+        output = commands.getoutput('couchdb -c')
+        paths = output.strip().split('\n')
+        self.parser = ConfigParser.ConfigParser()
+        self.parser.read(paths)
 
 
 class CouchDBTestCase(unittest.TestCase):
