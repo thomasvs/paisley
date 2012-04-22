@@ -442,6 +442,12 @@ class ConnectedCouchDBTestCase(TestCase):
         return d
 
 
+class Tag(object):
+
+    def fromDict(self, d):
+        pass
+
+
 class RealCouchDBTestCase(util.CouchDBTestCase):
 
     def setUp(self):
@@ -921,6 +927,16 @@ class RealCouchDBTestCase(util.CouchDBTestCase):
             self.assertEquals(result['_id'], doc_id)
             self.assertEquals(result['value'], 'bar')
         d.addCallback(checkDoc)
+        d.callback(None)
+        return d
+
+    def test_mapNoCache(self):
+        d = defer.Deferred()
+
+        d.addCallback(lambda _: self.db.saveDoc('test', {'type': 'tag'}))
+        # FIXME: remove unicode here
+        d.addCallback(lambda r: self.db.map('test', unicode(r['id']), Tag))
+
         d.callback(None)
         return d
 

@@ -17,6 +17,7 @@ import new
 from urllib import urlencode, quote
 from zope.interface import implements
 
+from twisted.internet import defer
 from twisted.web.http_headers import Headers
 from twisted.web.iweb import IBodyProducer
 
@@ -119,7 +120,7 @@ class CouchDB(object):
 
     def __init__(self, host, port=5984, dbName=None,
                  username=None, password=None, disable_log=False,
-                 version=(1, 0, 1)):
+                 version=(1, 0, 1), cache=None):
         """
         Initialize the client for given host.
 
@@ -141,6 +142,7 @@ class CouchDB(object):
         self.port = int(port)
         self.username = username
         self.password =password
+        self._cache = cache
         self.url_template = "http://%s:%s%%s" % (self.host, self.port)
         if dbName is not None:
             self.bindToDB(dbName)
@@ -302,6 +304,8 @@ class CouchDB(object):
             document.
         @type attachment: C{str}
         """
+        # FIXME: where should we enforce unicode ?
+        docId = unicode(docId)
         # Responses: {u'_rev': -1825937535, u'_id': u'mydoc', ...}
         # 404 Object Not Found
 
@@ -324,7 +328,23 @@ class CouchDB(object):
             uri += "/%s" % quote(attachment)
             # No parsing
             return self.get(uri, descr='openDoc', isJson=False)
-        return self.get(uri, descr='openDoc').addCallback(self.parseResult)
+
+        # just the document
+        if self._cache:
+            try:
+                return self._cache.get(docId)
+            except:
+                pass
+
+        return self.get(uri, descr='openDoc').addCallback(
+            self.parseResult).addCallback(
+            self._cacheResult, docId)
+
+    def _cacheResult(self, value, docId):
+        if self._cache:
+            self._cache.store(docId, value)
+
+        return value
 
     def addAttachments(self, document, attachments):
         """
@@ -557,3 +577,150 @@ class CouchDB(object):
         self.log.debug("[%s:%s%s] DELETE %s",
                        self.host, self.port, short_print(uri), descr)
         return self._getPage(uri, method="DELETE")
+
+    # map to an object
+
+    def map(self, dbName, docId, objectFactory, *args, **kwargs):
+        """
+        @type docId: unicode
+        """
+        # return cached version if in cache
+        assert type(docId) is unicode, 'docId %r is not unicode' % docId
+
+        try:
+            return self._cache.getObject(docId)
+        except (KeyError, AttributeError):
+            # KeyError when docId does not exist
+            # AttributeError when we don't have a cache
+            d = self.openDoc(dbName, docId)
+
+            def cb(doc):
+                obj = objectFactory(*args, **kwargs)
+                obj.fromDict(doc)
+                self.mapped(docId, obj)
+                return obj
+            d.addCallback(cb)
+            return d
+
+    def mapped(self, key, obj):
+        if self._cache:
+            self._cache.mapped(key, obj)
+
+
+class Cache(object):
+
+    def store(key, value, operation='post'):
+        """
+        Store a key/value pair in the cache.
+
+        @param key:   key to store value under
+        @type  key:   C{unicode}
+        @param value: the value to be stored
+        @type  value: C{object}
+
+        @rtype:   L{defer.Deferred}
+        @returns: a deferred firing the value on success.
+        """
+        raise NotImplementedError
+
+    def get(key):
+        """
+        Retrieve a key/value pair from the cache.
+
+        @param key:   key to retrieve value with
+        @type  key:   C{unicode}
+
+
+        @rtype:   L{defer.Deferred}
+        @returns: a deferred firing the value.
+        """
+        raise NotImplementedError
+
+    def getObject(key):
+        """
+        Retrieve a key/object pair from the cache.
+
+        @param key:   key to retrieve value with
+        @type  key:   C{unicode}
+
+        @rtype:   L{defer.Deferred}
+        @returns: a deferred firing the value.
+        """
+        raise NotImplementedError
+
+    def delete(key):
+        """
+        Remove a key/value pair from the cache.
+
+        @param key:   key to delete value for
+        @type  key:   C{unicode}
+
+        @rtype:   L{defer.Deferred}
+        @returns: a deferred firing True on sucess.
+        """
+        raise NotImplementedError
+
+    # FIXME: can I rewrite this so that whether or not we map is pluggable ?
+
+    def mapped(self, key, obj):
+        raise NotImplementedError
+
+    def getMapped(self, key):
+        raise NotImplementedError
+
+
+class MemoryCache(Cache):
+    """
+    I cache parsed docs in memory.
+    """
+
+    def __init__(self, docs=True, objects=True):
+        self._docCache = {} # dict of dbName to dict of id to doc
+        self._objCache = {} # dict of dbName to dict of id to doc
+
+        self.lookups = 0
+        self.hits = 0
+        self.cached = 0
+
+        self._docs = True
+        self._objects = True
+
+    def mapped(self, key, obj):
+        assert type(key) is unicode, 'key %r is not unicode' % key
+        assert type(obj) is not defer.Deferred
+        if not self._objects:
+            return
+
+        if not key in self._objCache:
+            self._objCache[key] = obj
+            self.cached += 1
+
+    def store(self, key, value, operation='post'):
+        assert type(key) is unicode, 'key %r is not unicode' % key
+        self._docCache[key] = value
+        self.cached += 1
+        return defer.succeed(True)
+
+    def get(self, key):
+        self.lookups += 1
+        ret = self._docCache[key]
+        self.hits += 1
+        return defer.succeed(ret)
+
+    def getObject(self, key):
+        self.lookups += 1
+        ret = self._objCache[key]
+        self.hits += 1
+        return defer.succeed(ret)
+
+    def delete(self, key):
+        deleted = False
+        for d in [self._docCache, self._objCache]:
+            try:
+                del d[key]
+                deleted = True
+            except:
+                pass
+        if deleted:
+            self.cached -= 1
+        return defer.succeed(True)
