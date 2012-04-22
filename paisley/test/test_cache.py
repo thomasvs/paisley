@@ -28,21 +28,22 @@ class MemoryCacheTestCase(util.CouchDBTestCase):
         d = defer.Deferred()
         d.addCallback(lambda _: self.db.createDB('test'))
         d.addCallback(lambda _: self.db.saveDoc('test', {
-            'key': 'value'
+            'key': 'value',
         }))
         d.addCallback(lambda r: setattr(self, 'first', r['id']))
         d.addCallback(lambda _: self.db.saveDoc('test', {
-            'lock': 'chain'
+            'lock': 'chain',
         }))
         d.addCallback(lambda r: setattr(self, 'second', r['id']))
         d.callback(None)
         return d
 
     def testCached(self):
-        
+
         d = defer.Deferred()
 
         d.addCallback(lambda _: self.db.openDoc('test', self.first))
+
         def openCb(result):
             self.assertEquals(result['key'], 'value')
         d.addCallback(openCb)
@@ -51,14 +52,14 @@ class MemoryCacheTestCase(util.CouchDBTestCase):
         d.addCallback(lambda _: self.assertEquals(self.cache.cached, 1))
 
         d.addCallback(lambda _: self.db.openDoc('test', self.first))
-        def openCb(result):
-            self.assertEquals(result['key'], 'value')
+
         d.addCallback(openCb)
         d.addCallback(lambda _: self.assertEquals(self.cache.lookups, 2))
         d.addCallback(lambda _: self.assertEquals(self.cache.hits, 1))
         d.addCallback(lambda _: self.assertEquals(self.cache.cached, 1))
 
         d.addCallback(lambda _: self.db.openDoc('test', self.second))
+
         def openCb(result):
             self.assertEquals(result['lock'], 'chain')
         d.addCallback(openCb)

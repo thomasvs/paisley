@@ -385,7 +385,7 @@ class CacheChangeReceiverTestCase(ChangeReceiverTestCase):
 
         # create a doc
         d.addCallback(lambda _: self.db.saveDoc('test', {
-            'key': 'value'
+            'key': 'value',
         }))
         d.addCallback(lambda r: setattr(self, 'firstid', r['id']))
 
@@ -396,7 +396,7 @@ class CacheChangeReceiverTestCase(ChangeReceiverTestCase):
         d.addCallback(lambda _: self.assertEquals(self.cache.lookups, 1))
         d.addCallback(lambda _: self.assertEquals(self.cache.hits, 0))
         d.addCallback(lambda _: self.assertEquals(self.cache.cached, 1))
-        
+
         # get it a second time; test cache did have it
         d.addCallback(lambda _: self.db.openDoc('test', self.firstid))
         d.addCallback(lambda r: self.assertEquals(r['key'], 'value'))
@@ -420,7 +420,7 @@ class CacheChangeReceiverTestCase(ChangeReceiverTestCase):
         d.addCallback(lambda _: self.assertEquals(self.cache.lookups, 3))
         d.addCallback(lambda _: self.assertEquals(self.cache.hits, 1))
         d.addCallback(lambda _: self.assertEquals(self.cache.cached, 1))
-        
+
         d.addCallback(lambda _: notifier.stop())
         d.addCallback(lambda _: self.waitForNextCycle())
         return d

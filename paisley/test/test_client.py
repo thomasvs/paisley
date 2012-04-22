@@ -443,6 +443,7 @@ class ConnectedCouchDBTestCase(TestCase):
 
 
 class Tag(object):
+
     def fromDict(self, d):
         pass
 
@@ -1043,4 +1044,3 @@ class ResponseReceiverTestCase(TestCase):
             rvr.dataReceived(c)
 
         rvr.connectionLost(Failure(ResponseDone()))
-

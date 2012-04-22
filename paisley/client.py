@@ -336,9 +336,9 @@ class CouchDB(object):
             except:
                 pass
 
-        return self.get(uri, descr='openDoc'
-            ).addCallback(self.parseResult
-            ).addCallback(self._cacheResult, docId)
+        return self.get(uri, descr='openDoc').addCallback(
+            self.parseResult).addCallback(
+            self._cacheResult, docId)
 
     def _cacheResult(self, value, docId):
         if self._cache:
@@ -579,6 +579,7 @@ class CouchDB(object):
         return self._getPage(uri, method="DELETE")
 
     # map to an object
+
     def map(self, dbName, docId, objectFactory, *args, **kwargs):
         """
         @type docId: unicode
@@ -592,6 +593,7 @@ class CouchDB(object):
             # KeyError when docId does not exist
             # AttributeError when we don't have a cache
             d = self.openDoc(dbName, docId)
+
             def cb(doc):
                 obj = objectFactory(*args, **kwargs)
                 obj.fromDict(doc)
@@ -604,11 +606,13 @@ class CouchDB(object):
         if self._cache:
             self._cache.mapped(key, obj)
 
+
 class Cache(object):
+
     def store(key, value, operation='post'):
         """
         Store a key/value pair in the cache.
-        
+
         @param key:   key to store value under
         @type  key:   C{unicode}
         @param value: the value to be stored
@@ -618,15 +622,15 @@ class Cache(object):
         @returns: a deferred firing the value on success.
         """
         raise NotImplementedError
-    
+
     def get(key):
         """
         Retrieve a key/value pair from the cache.
-        
+
         @param key:   key to retrieve value with
         @type  key:   C{unicode}
-        
-        
+
+
         @rtype:   L{defer.Deferred}
         @returns: a deferred firing the value.
         """
@@ -650,18 +654,20 @@ class Cache(object):
 
         @param key:   key to delete value for
         @type  key:   C{unicode}
-        
+
         @rtype:   L{defer.Deferred}
         @returns: a deferred firing True on sucess.
         """
         raise NotImplementedError
 
     # FIXME: can I rewrite this so that whether or not we map is pluggable ?
+
     def mapped(self, key, obj):
         raise NotImplementedError
 
     def getMapped(self, key):
         raise NotImplementedError
+
 
 class MemoryCache(Cache):
     """
@@ -685,16 +691,15 @@ class MemoryCache(Cache):
         if not self._objects:
             return
 
-        if not self._objCache.has_key(key):
+        if not key in self._objCache:
             self._objCache[key] = obj
             self.cached += 1
-    
+
     def store(self, key, value, operation='post'):
         assert type(key) is unicode, 'key %r is not unicode' % key
         self._docCache[key] = value
         self.cached += 1
         return defer.succeed(True)
-
 
     def get(self, key):
         self.lookups += 1
@@ -708,7 +713,6 @@ class MemoryCache(Cache):
         self.hits += 1
         return defer.succeed(ret)
 
-
     def delete(self, key):
         deleted = False
         for d in [self._docCache, self._objCache]:
@@ -720,4 +724,3 @@ class MemoryCache(Cache):
         if deleted:
             self.cached -= 1
         return defer.succeed(True)
-
