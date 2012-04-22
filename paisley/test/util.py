@@ -115,11 +115,14 @@ class CouchDBConfig(object):
 
 
 class QueryServerException(Exception):
+
     def __init__(self, output):
         self.args = (output, )
         self.output = output
 
+
 class JSQueryServerException(QueryServerException):
+
     def __init__(self, output, exceptionType, message, line, docId):
         self.args = (output, exceptionType, message, line, docId)
         self.output = output
@@ -161,6 +164,7 @@ class CouchQSWrapper(object):
     ### query_server protocol implementation
     #   these methods implement the basic primitives, stripping the
     #   trailing newline from output
+
     def reset(self):
         self.process.stdin.write('["reset"]\n')
         out = self.process.stdout.readline()
@@ -218,6 +222,7 @@ class CouchQSWrapper(object):
         return out
 
     ### methods for subclasses
+
     def parseException(self, line):
         pass
 
@@ -261,9 +266,9 @@ class CouchQSWrapper(object):
 
         return self.reduce(reduceFunc, ret)
 
-
     def stop(self):
         self.process.terminate()
+
 
 class CouchJSWrapper(CouchQSWrapper):
     """
@@ -273,13 +278,13 @@ class CouchJSWrapper(CouchQSWrapper):
     path = None
 
     ### subclass implementations
+
     def parseException(self, line):
         obj = pjson.loads(line)
         if isinstance(obj, list):
             if obj[0] == 'log':
                 message = obj[1]
                 self.parseMessage(message)
-
 
     def parseMessage(self, message):
         import re
@@ -301,7 +306,6 @@ class CouchJSWrapper(CouchQSWrapper):
                 line=int(m.group('line')),
                 docId=m.group('doc_id'))
 
-
     def processFunction(self, func):
         # process using couchapp if it exists
         # this lets us use !code directives
@@ -315,6 +319,7 @@ class CouchJSWrapper(CouchQSWrapper):
         return func
 
     ### public API
+
     def mapPath(self, path, doc):
         """
         Map the given document with the map function in the given path.
@@ -326,7 +331,8 @@ class CouchJSWrapper(CouchQSWrapper):
 
     def mapReducePath(self, mapPath, reducePath, docs):
         """
-        Map the given documents with the map/reduce functions in the given path.
+        Map the given documents with the map/reduce functions in the given
+        path.
         """
         fullMapPath = os.path.join(self.path, mapPath)
         mapFunc = open(fullMapPath).read()
@@ -351,6 +357,7 @@ class CouchQSTestCase(unittest.TestCase):
 
     def tearDown(self):
         self.wrapper.stop()
+
 
 class CouchDBTestCase(unittest.TestCase):
     """

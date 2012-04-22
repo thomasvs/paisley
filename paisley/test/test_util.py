@@ -7,6 +7,7 @@ from paisley.test import util
 
 
 class ConfigParserTestCase(unittest.TestCase):
+
     def setUp(self):
         self.config = util.CouchDBConfig()
 
@@ -19,15 +20,17 @@ class ConfigParserTestCase(unittest.TestCase):
             if name == 'javascript':
                 self.failUnless('couchjs' in arg)
 
+
 class CouchJSQueryTestCase(util.CouchQSTestCase):
     """
     I am a base class for tests.
     """
     QueryServerClass = util.CouchJSWrapper
 
-
     def test_parseMessage(self):
-        message = "function raised exception (new TypeError(\"doc.fragments is undefined\", \"\", 18)) with doc._id 8877AFF9789988EE"
+        message = "function raised exception (new TypeError(\"" + \
+            " doc.fragments is undefined\", \"\", 18))" + \
+            " with doc._id 8877AFF9789988EE"
 
         try:
             self.wrapper.parseMessage(message)
