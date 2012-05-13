@@ -260,7 +260,8 @@ class CouchDB(object):
 
     # Document operations
 
-    def listDoc(self, dbName, reverse=False, startKey=0, limit=-1, **obsolete):
+    def listDoc(self, dbName, reverse=False, startkey=None, endkey=None,
+                include_docs=False, limit=-1, **obsolete):
         """
         List all documents in a given database.
         """
@@ -279,8 +280,12 @@ class CouchDB(object):
         args = {}
         if reverse:
             args["reverse"] = "true"
-        if startKey > 0:
-            args["startkey"] = int(startKey)
+        if startkey:
+            args["startkey"] = json.dumps(startkey)
+        if endkey:
+            args["endkey"] = json.dumps(endkey)
+        if include_docs:
+            args["include_docs"] = True
         if limit >= 0:
             args["limit"] = int(limit)
         if args:
