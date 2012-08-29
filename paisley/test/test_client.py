@@ -132,6 +132,37 @@ class CouchDBTestCase(TestCase):
             self.assertEquals(res, ["foo"])
         return d.addCallback(cb)
 
+    def test_cleanDB(self):
+        """
+        Test cleanDB: this should C{POST} the DB name and _view_cleanup
+        in the uri.
+        """
+        d = self.client.cleanDB("mydb")
+        self.assertEquals(self.client.uri, "/mydb/_view_cleanup")
+        self.assertEquals(self.client.kwargs["method"], "POST")
+        return self._checkParseDeferred(d)
+
+
+    def test_compactDB(self):
+        """
+        Test compactDB: this should C{POST} the DB name and _compact in the uri.
+        """
+        d = self.client.compactDB("mydb")
+        self.assertEquals(self.client.uri, "/mydb/_compact")
+        self.assertEquals(self.client.kwargs["method"], "POST")
+        return self._checkParseDeferred(d)
+
+    def test_compactDesignDB(self):
+        """
+        Test compactDB: this should C{POST} the DB name, _compact, and
+        design_name in the uri.
+        """
+        d = self.client.compactDesignDB("mydb", "design")
+        self.assertEquals(self.client.uri, "/mydb/_compact/design")
+        self.assertEquals(self.client.kwargs["method"], "POST")
+        return self._checkParseDeferred(d)
+
+
     def test_createDB(self):
         """
         Test createDB: this should C{PUT} the DB name in the uri.
@@ -577,6 +608,34 @@ class RealCouchDBTestCase(util.CouchDBTestCase):
 
         d.callback(None)
         return d
+
+    def test_cleanDB(self):
+        d = defer.Deferred()
+        d.addCallback(lambda _: self.db.cleanDB(self.db_name))
+        d.addCallback(self.checkResultOk)
+        d.callback(None)
+        return d
+
+    def test_compactDB(self):
+        d = defer.Deferred()
+        d.addCallback(lambda _: self.db.compactDB(self.db_name))
+        d.addCallback(self.checkResultOk)
+        d.callback(None)
+        return d
+
+    def test_compactDesignDB(self):
+        d = defer.Deferred()
+
+        doc = {}
+        self.db.addViews(doc, {'test':
+            {'map': 'function (doc) { emit(doc.number, doc) }'}})
+        d.addCallback(lambda _: self.db.saveDoc('test', doc, '_design/test'))
+
+        d.addCallback(lambda _: self.db.compactDesignDB(self.db_name, 'test'))
+        d.addCallback(self.checkResultOk)
+        d.callback(None)
+        return d
+
 
     def test_createDB(self):
         """
