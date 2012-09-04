@@ -13,6 +13,7 @@ from paisley import pjson as json
 from encodings import utf_8
 import logging
 import new
+import cookielib
 
 from urllib import urlencode, quote
 from zope.interface import implements
@@ -137,12 +138,20 @@ class CouchDB(object):
         from twisted.internet import reactor
         # t.w.c imports reactor
         from twisted.web.client import Agent
-        self.client = Agent(reactor)
+        try:
+            from twisted.web.client import CookieAgent
+        except:
+            from paisley.tcompat import CookieAgent
+
+        agent = Agent(reactor)
+        self.client = CookieAgent(agent, cookielib.CookieJar())
         self.host = host
         self.port = int(port)
         self.username = username
         self.password =password
         self._cache = cache
+        self._authenticator = None
+
         self.url_template = "http://%s:%s%%s" % (self.host, self.port)
         if dbName is not None:
             self.bindToDB(dbName)
@@ -529,6 +538,21 @@ class CouchDB(object):
         d = self.post("/%s/_temp_view" % (dbName, ), view, descr='tempView')
         return d.addCallback(self.parseResult)
 
+    def getSession(self):
+        """
+        Get a session from the server using the supplied credentials.
+        """
+        self.log.debug("[%s:%s%s] POST %s",
+                       self.host, self.port, '_session', 'getSession')
+        d = self._getPage("/_session", method="POST",
+            postdata="name=%s&password=%s" % (self.username, self.password),
+            isJson=False,
+            headers={
+                'Content-Type': ['application/x-www-form-urlencodeddata', ],
+                'Accept': ['*/*', ],
+            })
+        return d.addCallback(self.parseResult)
+
     # Basic http methods
 
     def _getPage(self, uri, method="GET", postdata=None, headers=None,
@@ -555,6 +579,14 @@ class CouchDB(object):
             # and PageRedirect if we have errors.
             if response.code > 299 and response.code < 400:
                 raise tw_error.PageRedirect(response.code, body)
+            elif response.code == 401:
+                if self._authenticator:
+                    self.log.debug("401, authenticating")
+                    d = self._authenticator.authenticate(self)
+                    d.addCallback(lambda _: self._getPage(
+                        uri, method, postdata, headers, isJson))
+                    return d
+                raise tw_error.Error(response.code, body)
             elif response.code > 399:
                 raise tw_error.Error(response.code, body)
 
@@ -569,6 +601,9 @@ class CouchDB(object):
         if isJson:
             headers["Accept"] = ["application/json"]
             headers["Content-Type"] = ["application/json"]
+
+
+        url = str(self.url_template % (uri,))
 
         if self.username:
             headers["Authorization"] = ["Basic %s" % b64encode(
@@ -762,3 +797,14 @@ class MemoryCache(Cache):
         if deleted:
             self.cached -= 1
         return defer.succeed(True)
+
+
+class AuthenticationError(Exception):
+    pass
+
+class Authenticator(object):
+    def authenticate(self, client):
+        """
+        @rtype L{defer.Deferred}
+        """
+        raise NotImplementedError
