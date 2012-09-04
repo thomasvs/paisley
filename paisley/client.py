@@ -205,6 +205,39 @@ class CouchDB(object):
         return self.put("/%s/" % (dbName, ), "", descr='CreateDB'
             ).addCallback(self.parseResult)
 
+    def cleanDB(self, dbName):
+        """
+        Clean old view indexes for the database on the server.
+
+        @type  dbName: str
+        """
+        # Responses: 200, 404 Object Not Found
+        return self.post("/%s/_view_cleanup" % (dbName, ), "", descr='cleanDB'
+            ).addCallback(self.parseResult)
+
+    def compactDB(self, dbName):
+        """
+        Compacts the database on the server.
+
+        @type  dbName: str
+        """
+        # Responses: 202 Accepted, 404 Object Not Found
+        return self.post("/%s/_compact" % (dbName, ), "", descr='compactDB'
+            ).addCallback(self.parseResult)
+
+    def compactDesignDB(self, dbName, designName):
+        """
+        Compacts the database on the server.
+
+        @type  dbName: str
+        @type  designName: str
+        """
+        # Responses: 202 Accepted, 404 Object Not Found
+        return self.post("/%s/_compact/%s" % (dbName, designName),
+            "", descr='compactDesignDB'
+            ).addCallback(self.parseResult)
+
+
     def deleteDB(self, dbName):
         """
         Deletes the database on the server.
