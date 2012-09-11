@@ -559,15 +559,27 @@ class CouchDB(object):
             # and PageRedirect if we have errors.
             if response.code > 299 and response.code < 400:
                 raise tw_error.PageRedirect(response.code, body)
-            elif response.code == 401:
-                if self._authenticator:
-                    self.log.debug("401, authenticating")
-                    d = self._authenticator.authenticate(self)
-                    d.addCallback(lambda _: self._getPage(
-                        uri, method, postdata, headers, isJson))
-                    return d
-                raise tw_error.Error(response.code, body)
-            elif response.code > 399:
+
+            # When POST'ing to replicate, CouchDB can return 404
+            # instead of 401, with error: unauthorized in the body
+            if response.code in [401, 404]:
+                error = None
+                if response.code == 404:
+                    try:
+                        b = json.loads(body)
+                        error = b['error']
+                    except:
+                        pass
+
+                if response.code == 401 or error == 'unauthorized':
+                    if self._authenticator:
+                        self.log.debug("401, authenticating")
+                        d = self._authenticator.authenticate(self)
+                        d.addCallback(lambda _: self._getPage(
+                            uri, method, postdata, headers, isJson))
+                        return d
+
+            if response.code > 399:
                 raise tw_error.Error(response.code, body)
 
             return body
