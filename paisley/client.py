@@ -118,7 +118,8 @@ class CouchDB(object):
     """
 
     def __init__(self, host, port=5984, dbName=None,
-                 username=None, password=None, disable_log=False,
+                 username=None, password=None, protocol='http',
+                 disable_log=False,
                  version=(1, 0, 1)):
         """
         Initialize the client for given host.
@@ -141,7 +142,7 @@ class CouchDB(object):
         self.port = int(port)
         self.username = username
         self.password =password
-        self.url_template = "http://%s:%s%%s" % (self.host, self.port)
+        self.url_template = "%s://%s:%s%%s" % (protocol, self.host, self.port)
         if dbName is not None:
             self.bindToDB(dbName)
 
