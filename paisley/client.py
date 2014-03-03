@@ -64,6 +64,15 @@ except ImportError:
 
 SOCK_TIMEOUT = 300
 
+class ViewGenerator(object):
+    """
+    I allow getting a CouchDB view with a streaming generator interface.
+    """
+    total_rows = 0
+    offset = 0
+
+    def __init__(self, deferred):
+        self._deferred = deferred
 
 class StringProducer(object):
     """
@@ -486,6 +495,50 @@ class CouchDB(object):
                 buildUri(), descr='openView').addCallback(
                     self.parseResult)
 
+    def openViewGenerator(self, dbName, docId, viewId, **kwargs):
+        """
+        Open a view of a document in a given database.
+
+        @rtype: L{ViewGenerator}
+        """
+        # Responses:
+        # 500 Internal Server Error (illegal database name)
+
+        def buildUri(dbName=dbName, docId=docId, viewId=viewId, kwargs=kwargs):
+            return "/%s/_design/%s/_view/%s?%s" % (
+                dbName, quote(docId), viewId, urlencode(kwargs))
+
+        # if there is a "keys" argument, remove it from the kwargs
+        # dictionary now so that it doesn't get double JSON-encoded
+        body = None
+        if "keys" in kwargs:
+            body = json.dumps({"keys": kwargs.pop("keys")})
+
+        # encode the rest of the values with JSON for use as query
+        # arguments in the URI
+        for k, v in kwargs.iteritems():
+            if k == 'keys': # we do this below, for the full body
+                pass
+            else:
+                kwargs[k] = json.dumps(v)
+        # we keep the paisley API, but couchdb uses limit now
+        if 'count' in kwargs:
+            kwargs['limit'] = kwargs.pop('count')
+
+        # If there's a list of keys to send, POST the
+        # query so that we can upload the keys as the body of
+        # the POST request, otherwise use a GET request
+        if body:
+            return self.post(
+                buildUri(), body=body, descr='openView').addCallback(
+                    self.parseResult)
+        else:
+            g = ViewGenerator(
+                self.getStreaming(
+                    buildUri(), descr='openView'))
+
+        return g
+
     def addViews(self, document, views):
         """
         Add views to a document.
@@ -562,6 +615,58 @@ class CouchDB(object):
 
         return d
 
+    def _getPageStreaming(self, uri, method="GET", postdata=None, headers=None,
+            isJson=True):
+        """
+        C{getPage}-like.
+        """
+
+        def cb_recv_resp(response):
+            d_resp_recvd = Deferred()
+            content_type = response.headers.getRawHeaders('Content-Type',
+                    [''])[0].lower().strip()
+            decode_utf8 = 'charset=utf-8' in content_type or \
+                    content_type == 'application/json'
+            response.deliverBody(ResponseReceiver(d_resp_recvd,
+                decode_utf8=decode_utf8))
+            return d_resp_recvd.addCallback(cb_process_resp, response)
+
+        def cb_process_resp(body, response):
+            # twisted.web.error imports reactor
+            from twisted.web import error as tw_error
+
+            # Emulate HTTPClientFactory and raise t.w.e.Error
+            # and PageRedirect if we have errors.
+            if response.code > 299 and response.code < 400:
+                raise tw_error.PageRedirect(response.code, body)
+            elif response.code > 399:
+                raise tw_error.Error(response.code, body)
+
+            return body
+
+        uurl = unicode(self.url_template % (uri, ))
+        url = uurl.encode('utf-8')
+
+        if not headers:
+            headers = {}
+
+        if isJson:
+            headers["Accept"] = ["application/json"]
+            headers["Content-Type"] = ["application/json"]
+
+        if self.username:
+            headers["Authorization"] = ["Basic %s" % b64encode(
+                "%s:%s" % (self.username, self.password))]
+
+        body = StringProducer(postdata) if postdata else None
+
+        d = self.client.request(method, url, Headers(headers), body)
+
+        d.addCallback(cb_recv_resp)
+
+        return d
+
+
     def get(self, uri, descr='', isJson=True):
         """
         Execute a C{GET} at C{uri}.
@@ -569,6 +674,15 @@ class CouchDB(object):
         self.log.debug("[%s:%s%s] GET %s",
                        self.host, self.port, short_print(uri), descr)
         return self._getPage(uri, method="GET", isJson=isJson)
+
+    def getStreaming(self, uri, descr='', isJson=True):
+        """
+        Execute a C{GET} at C{uri}.
+        """
+        self.log.debug("[%s:%s%s] GET %s",
+                       self.host, self.port, short_print(uri), descr)
+        return self._getPageStreaming(uri, method="GET", isJson=isJson)
+
 
     def post(self, uri, body, descr=''):
         """

@@ -341,6 +341,15 @@ class CouchDBTestCase(TestCase):
         self.assertEquals(self.client.kwargs["method"], "GET")
         return self._checkParseDeferred(d)
 
+    def test_openViewGenerator(self):
+        """
+        Test openViewGenerator.
+        """
+        d = self.client.openViewGenerator("mydb", "viewdoc", "myview")
+
+        print d
+
+
     def test_openViewWithQuery(self):
         """
         Test openView with query arguments.
