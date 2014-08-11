@@ -18,6 +18,7 @@ import cookielib
 from urllib import urlencode, quote
 from zope.interface import implements
 
+from twisted.internet import defer, task
 from twisted.web.http_headers import Headers
 from twisted.web.iweb import IBodyProducer
 
@@ -149,6 +150,7 @@ class CouchDB(object):
         self.username = username
         self.password =password
         self._authenticator = None
+        self._authLC = None # looping call to keep us authenticated
 
         self.url_template = "http://%s:%s%%s" % (self.host, self.port)
         if dbName is not None:
@@ -575,6 +577,7 @@ class CouchDB(object):
                     if self._authenticator:
                         self.log.debug("401, authenticating")
                         d = self._authenticator.authenticate(self)
+                        d.addCallback(lambda _: self._startLC())
                         d.addCallback(lambda _: self._getPage(
                             uri, method, postdata, headers, isJson))
                         return d
@@ -608,6 +611,21 @@ class CouchDB(object):
         d.addCallback(cb_recv_resp)
 
         return d
+
+    def _startLC(self):
+        self.log.debug("startLC")
+        # start a looping call to keep us authenticated with cookies
+        if self._authLC:
+            self._authLC.stop()
+
+        def loop():
+            self.log.debug('looping authentication')
+            self.get('')
+
+        # FIXME: can we query this value instead ?
+        AUTH_WINDOW = 300 # half of default
+        self._authLC = task.LoopingCall(loop)
+        self._authLC.start(AUTH_WINDOW)
 
     def get(self, uri, descr='', isJson=True):
         """
