@@ -134,6 +134,11 @@ class CouchDB(object):
         @param dbName: if specified, all calls needing a database name will use
             this one by default.
         @type dbName: C{str}
+
+        @param username: the username
+        @type  username: C{unicode}
+        @param password: the password
+        @type  password: C{unicode}
         """
         from twisted.internet import reactor
         # t.w.c imports reactor
@@ -147,8 +152,12 @@ class CouchDB(object):
         self.client = CookieAgent(agent, cookielib.CookieJar())
         self.host = host
         self.port = int(port)
+        if isinstance(username, str):
+            username = unicode(username)
         self.username = username
-        self.password =password
+        if isinstance(password, str):
+            password = unicode(password)
+        self.password = password
         self._authenticator = None
         self._authLC = None # looping call to keep us authenticated
 
@@ -527,7 +536,9 @@ class CouchDB(object):
         self.log.debug("[%s:%s%s] POST %s",
                        self.host, self.port, '_session', 'getSession')
         d = self._getPage("/_session", method="POST",
-            postdata="name=%s&password=%s" % (self.username, self.password),
+            postdata="name=%s&password=%s" % (
+                self.username.encode('utf-8'),
+                self.password.encode('utf-8')),
             isJson=False,
             headers={
                 'Content-Type': ['application/x-www-form-urlencodeddata', ],
