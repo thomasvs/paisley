@@ -140,30 +140,6 @@ class CouchDB(object):
         @param password: the password
         @type  password: C{unicode}
         """
-        from twisted.internet import reactor
-        # t.w.c imports reactor
-        from twisted.web.client import Agent
-        try:
-            from twisted.web.client import CookieAgent
-        except:
-            from paisley.tcompat import CookieAgent
-
-        agent = Agent(reactor)
-        self.client = CookieAgent(agent, cookielib.CookieJar())
-        self.host = host
-        self.port = int(port)
-        if isinstance(username, str):
-            username = unicode(username)
-        self.username = username
-        if isinstance(password, str):
-            password = unicode(password)
-        self.password = password
-        self._authenticator = None
-        self._authLC = None # looping call to keep us authenticated
-
-        self.url_template = "http://%s:%s%%s" % (self.host, self.port)
-        if dbName is not None:
-            self.bindToDB(dbName)
 
         if disable_log:
             # since this is the db layer, and we generate a lot of logs,
@@ -180,6 +156,34 @@ class CouchDB(object):
                 self.log.__dict__[level] = new.instancemethod(nullfn, self.log)
         else:
             self.log = logging.getLogger('paisley')
+
+        from twisted.internet import reactor
+        # t.w.c imports reactor
+        from twisted.web.client import Agent
+        try:
+            from twisted.web.client import CookieAgent
+            self.log.debug('using twisted.web.client.CookieAgent')
+        except:
+            from paisley.tcompat import CookieAgent
+            self.log.debug('using paisley.tcompat.CookieAgent')
+
+        agent = Agent(reactor)
+        self.client = CookieAgent(agent, cookielib.CookieJar())
+        self.host = host
+        self.port = int(port)
+        if isinstance(username, str):
+            username = unicode(username)
+        self.username = username
+        if isinstance(password, str):
+            password = unicode(password)
+        self.password = password
+        self._authenticator = None
+        self._authLC = None # looping call to keep us authenticated
+        self._session = {}
+
+        self.url_template = "http://%s:%s%%s" % (self.host, self.port)
+        if dbName is not None:
+            self.bindToDB(dbName)
 
 
         self.log.debug("[%s%s:%s/%s] init new db client",
