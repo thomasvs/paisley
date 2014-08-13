@@ -539,16 +539,39 @@ class CouchDB(object):
         """
         self.log.debug("[%s:%s%s] POST %s",
                        self.host, self.port, '_session', 'getSession')
-        d = self._getPage("/_session", method="POST",
-            postdata="name=%s&password=%s" % (
+        postdata = "name=%s&password=%s" % (
                 self.username.encode('utf-8'),
-                self.password.encode('utf-8')),
+                self.password.encode('utf-8'))
+        self.log.debug("[%s:%s%s] POST data %s",
+                       self.host, self.port, '_session', 'getSession')
+        d = self._getPage("/_session", method="POST",
+            postdata=postdata,
             isJson=False,
             headers={
                 'Content-Type': ['application/x-www-form-urlencodeddata', ],
                 'Accept': ['*/*', ],
             })
-        return d.addCallback(self.parseResult)
+        d.addCallback(self.parseResult)
+
+        def getSessionCb(result):
+            # save the response of getSession, including roles
+            # {u'ok': True, u'name': u'user/thomas@apestaart.org', u'roles': [u'xbnjwxg', u'confirmed', u'hoodie:read:user/xbnjwxg', u'hoodie:write:user/xbnjwxg']}
+            self.log.debug("[%s:%s%s] POST result %r",
+                       self.host, self.port, '_session', result)
+            self._session = result
+            return result
+        d.addCallback(getSessionCb)
+
+        return d
+
+    def getSessionRoles(self):
+        """
+        @rtype: C{list} of C{unicode}
+        """
+        if self._session:
+            return self._session['roles']
+
+        return []
 
     # Basic http methods
 
