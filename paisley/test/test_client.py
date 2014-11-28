@@ -589,7 +589,6 @@ class RealCouchDBTestCase(util.CouchDBTestCase):
             self.db.openView('test', 'test', 'test', keys=[0], update_seq=True))
 
         def openView3Cb(result):
-            print result
             self.assertEquals(result[u'total_rows'], 1)
             self.assertEquals(result[u'offset'], 0)
             self.assertEquals(result[u'update_seq'], 2)

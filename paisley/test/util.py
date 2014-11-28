@@ -4,6 +4,7 @@
 # Copyright (c) 2007-2008
 # See LICENSE for details.
 
+import commands
 import glob
 import re
 import os
