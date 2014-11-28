@@ -4,6 +4,7 @@
 # Copyright (c) 2007-2008
 # See LICENSE for details.
 
+import glob
 import re
 import os
 import tempfile
@@ -29,10 +30,27 @@ class CouchDBWrapper(object):
     """
 
     def start(self):
-        self.tempdir = tempfile.mkdtemp(suffix='.paisley.test')
+        self.tempdir = tempfile.mkdtemp(prefix='tmp.paisley.test.')
 
-        path = os.path.join(os.path.dirname(__file__),
-            'test.ini.template')
+        version = self.version()
+
+        # compare version to the templates defined for each version, starting
+        # with the most recent and ending with the default
+        paths = glob.glob(
+            os.path.join(os.path.dirname(__file__),
+                'test.ini.template*'))
+        paths.sort()
+        paths.reverse()
+
+        target = 'test.ini.template-%s' % version
+
+        for path in paths:
+            name = os.path.basename(path)
+            # FIXME: in the future, if the distinction matters, use
+            # distutils.version.LooseVersion instead
+            if name < target:
+                break
+
         handle = open(path)
 
         conf = handle.read() % {
@@ -49,7 +67,6 @@ class CouchDBWrapper(object):
         os.mkdir(os.path.join(self.tempdir, 'log'))
 
         args = ['couchdb', '-a', confPath]
-        null = open('/dev/null', 'w')
         self.process = subprocess.Popen(
             args, env=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -89,6 +106,17 @@ stderr:
 
         os.system("rm -rf %s" % self.tempdir)
 
+    def version(self):
+        (status, output) = commands.getstatusoutput('couchdb -V')
+        assert status == 0, 'Could not run couchdb -V: %r' % (output, )
+
+        # couchdb - Apache CouchDB 1.4.0+build.9b64526
+        VERSION_RE = re.compile(
+            '^couchdb - Apache CouchDB (?P<version>.*)$')
+
+        m = VERSION_RE.search(output.split('\n')[0])
+
+        return m.group('version')
 
 class CouchDBTestCase(unittest.TestCase):
     """
