@@ -121,7 +121,8 @@ class CouchDB(object):
     """
 
     def __init__(self, host, port=5984, dbName=None,
-                 username=None, password=None, disable_log=False,
+                 username=None, password=None, protocol='http',
+                 disable_log=False,
                  version=(1, 0, 1), cache=None):
         """
         Initialize the client for given host.
@@ -141,7 +142,6 @@ class CouchDB(object):
         @param password: the password
         @type  password: C{unicode}
         """
-
         if disable_log:
             # since this is the db layer, and we generate a lot of logs,
             # let people disable them completely if they want to.
@@ -183,7 +183,8 @@ class CouchDB(object):
         self._authLC = None # looping call to keep us authenticated
         self._session = {}
 
-        self.url_template = "http://%s:%s%%s" % (self.host, self.port)
+        self.url_template = "%s://%s:%s%%s" % (protocol, self.host, self.port)
+
         if dbName is not None:
             self.bindToDB(dbName)
 
