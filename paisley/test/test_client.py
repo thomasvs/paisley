@@ -366,11 +366,11 @@ class CouchDBTestCase(TestCase):
         """
         Test openView handles couchdb's strange requirements for keys arguments
         """
-        d = self.client.openView("mydb2",
-                                 "viewdoc2",
-                                 "myview2",
-                                 keys=[1, 3, 4, "hello, world", {1: 5}],
-                                 limit=5)
+        self.client.openView("mydb2",
+            "viewdoc2",
+            "myview2",
+            keys=[1, 3, 4, "hello, world", {1: 5}],
+            limit=5)
         self.assertEquals(self.client.kwargs["method"], "POST")
         self.failUnless(
             self.client.uri.startswith(
