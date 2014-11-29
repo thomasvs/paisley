@@ -35,6 +35,10 @@ except ImportError:
         return "".join(base64.encodestring(s).split("\n"))
 
 
+# for quoting database names, we also need to encode slashes
+def _namequote(name):
+    return quote(name, safe='')
+
 def short_print(body, trim=255):
     # don't go nuts on possibly huge log entries
     # since we're a library we should try to avoid calling this and instead
@@ -127,16 +131,16 @@ class CouchDB(object):
         """
         Initialize the client for given host.
 
-        @param host: address of the server.
-        @type host: C{str}
-
-        @param port: if specified, the port of the server.
-        @type port: C{int}
-
-        @param dbName: if specified, all calls needing a database name will use
-            this one by default.
-        @type dbName: C{str}
-
+        @param host:     address of the server.
+        @type  host:     C{str}
+        @param port:     if specified, the port of the server.
+        @type  port:     C{int}
+        @param dbName:   if specified, all calls needing a database name will
+                         use this one by default.
+                         Note that only lowercase characters (a-z), digits
+                         (0-9), or any of the characters _, $, (, ), +, -, and
+                         / are allowed.
+        @type  dbName:   C{str}
         @param username: the username
         @type  username: C{unicode}
         @param password: the password
@@ -227,7 +231,7 @@ class CouchDB(object):
         # characters (a-z), digits (0-9), and any of the characters _, $, (,
         # ), +, -, and / are allowed. Must begin with a letter."}
 
-        return self.put("/%s/" % (dbName, ), "", descr='CreateDB'
+        return self.put("/%s/" % (_namequote(dbName), ), "", descr='CreateDB'
             ).addCallback(self.parseResult)
 
     def cleanDB(self, dbName):
@@ -237,7 +241,8 @@ class CouchDB(object):
         @type  dbName: str
         """
         # Responses: 200, 404 Object Not Found
-        return self.post("/%s/_view_cleanup" % (dbName, ), "", descr='cleanDB'
+        return self.post("/%s/_view_cleanup" % (_namequote(dbName), ), "",
+        descr='cleanDB'
             ).addCallback(self.parseResult)
 
     def compactDB(self, dbName):
@@ -247,7 +252,8 @@ class CouchDB(object):
         @type  dbName: str
         """
         # Responses: 202 Accepted, 404 Object Not Found
-        return self.post("/%s/_compact" % (dbName, ), "", descr='compactDB'
+        return self.post("/%s/_compact" % (_namequote(dbName), ), "",
+            descr='compactDB'
             ).addCallback(self.parseResult)
 
     def compactDesignDB(self, dbName, designName):
@@ -258,7 +264,7 @@ class CouchDB(object):
         @type  designName: str
         """
         # Responses: 202 Accepted, 404 Object Not Found
-        return self.post("/%s/_compact/%s" % (dbName, designName),
+        return self.post("/%s/_compact/%s" % (_namequote(dbName), designName),
             "", descr='compactDesignDB'
             ).addCallback(self.parseResult)
 
@@ -270,7 +276,7 @@ class CouchDB(object):
         @type  dbName: str
         """
         # Responses: {u'ok': True}, 404 Object Not Found
-        return self.delete("/%s/" % (dbName, )
+        return self.delete("/%s/" % (_namequote(dbName), )
             ).addCallback(self.parseResult)
 
     def listDB(self):
@@ -313,7 +319,7 @@ class CouchDB(object):
         """
         # Responses: {u'update_seq': 0, u'db_name': u'mydb', u'doc_count': 0}
         # 404 Object Not Found
-        return self.get("/%s/" % (dbName, ), descr='infoDB'
+        return self.get("/%s/" % (_namequote(dbName), ), descr='infoDB'
             ).addCallback(self.parseResult)
 
     # Document operations
@@ -334,7 +340,7 @@ class CouchDB(object):
         if obsolete:
             raise AttributeError("Unknown attribute(s): %r" % (
                 obsolete.keys(), ))
-        uri = "/%s/_all_docs" % (dbName, )
+        uri = "/%s/_all_docs" % (_namequote(dbName), )
         args = {}
         if reverse:
             args["reverse"] = "true"
@@ -382,7 +388,7 @@ class CouchDB(object):
             assert type(revision) is unicode, \
                 'revision is %r instead of unicode' % (type(revision), )
 
-        uri = "/%s/%s" % (dbName, quote(docId.encode('utf-8')))
+        uri = "/%s/%s" % (_namequote(dbName), quote(docId.encode('utf-8')))
         if revision is not None:
             uri += "?%s" % (urlencode({"rev": revision.encode('utf-8')}), )
         elif full:
@@ -451,10 +457,12 @@ class CouchDB(object):
         if not isinstance(body, (str, unicode)):
             body = json.dumps(body)
         if docId is not None:
-            d = self.put("/%s/%s" % (dbName, quote(docId.encode('utf-8'))),
+            d = self.put("/%s/%s" % (_namequote(dbName),
+                quote(docId.encode('utf-8'))),
                 body, descr='saveDoc')
         else:
-            d = self.post("/%s/" % (dbName, ), body, descr='saveDoc')
+            d = self.post("/%s/" % (_namequote(dbName), ), body,
+                descr='saveDoc')
         return d.addCallback(self.parseResult)
 
     def deleteDoc(self, dbName, docId, revision):
@@ -484,7 +492,7 @@ class CouchDB(object):
 
 
         return self.delete("/%s/%s?%s" % (
-                dbName,
+                _namequote(dbName),
                 quote(docId.encode('utf-8')),
                 urlencode({'rev': revision.encode('utf-8')}))).addCallback(
                     self.parseResult)
@@ -500,7 +508,7 @@ class CouchDB(object):
 
         def buildUri(dbName=dbName, docId=docId, viewId=viewId, kwargs=kwargs):
             return "/%s/_design/%s/_view/%s?%s" % (
-                dbName, quote(docId), viewId, urlencode(kwargs))
+                _namequote(dbName), quote(docId), viewId, urlencode(kwargs))
 
         # if there is a "keys" argument, remove it from the kwargs
         # dictionary now so that it doesn't get double JSON-encoded
@@ -551,7 +559,8 @@ class CouchDB(object):
         """
         if not isinstance(view, (str, unicode)):
             view = json.dumps(view)
-        d = self.post("/%s/_temp_view" % (dbName, ), view, descr='tempView')
+        d = self.post("/%s/_temp_view" % (_namequote(dbName), ), view,
+            descr='tempView')
         return d.addCallback(self.parseResult)
 
     def getSession(self):

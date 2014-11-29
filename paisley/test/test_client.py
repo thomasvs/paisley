@@ -366,11 +366,11 @@ class CouchDBTestCase(TestCase):
         """
         Test openView handles couchdb's strange requirements for keys arguments
         """
-        d = self.client.openView("mydb2",
-                                 "viewdoc2",
-                                 "myview2",
-                                 keys=[1, 3, 4, "hello, world", {1: 5}],
-                                 limit=5)
+        self.client.openView("mydb2",
+            "viewdoc2",
+            "myview2",
+            keys=[1, 3, 4, "hello, world", {1: 5}],
+            limit=5)
         self.assertEquals(self.client.kwargs["method"], "POST")
         self.failUnless(
             self.client.uri.startswith(
@@ -459,7 +459,7 @@ class ConnectedCouchDBTestCase(TestCase):
         self.addCleanup(port.stopListening)
         self.client = client.CouchDB("127.0.0.1", port.getHost().port)
 
-    def test_createDB(self):
+    def test_listDB(self):
         """
         Test listDB.
         """
@@ -487,16 +487,19 @@ class RealCouchDBTestCase(util.CouchDBTestCase):
         self.db_name = 'test'
         return self._resetDatabase()
 
-    def _resetDatabase(self):
+    def _resetDatabase(self, name=None):
         """
         Helper method to create an empty test database, deleting the existing
         one if required.  Used to clean up before running each test.
         """
+        if not name:
+            name = self.db_name
+
         d = defer.Deferred()
         d.addCallback(lambda _: self._deleteTestDatabaseIfExists())
-        d.addCallback(lambda _: self.db.createDB(self.db_name))
+        d.addCallback(lambda _: self.db.createDB(name))
         d.addCallback(self.checkResultOk)
-        d.addCallback(lambda _: self.db.infoDB(self.db_name))
+        d.addCallback(lambda _: self.db.infoDB(name))
 
         d.addCallback(self.checkInfoNewDatabase)
         # We need to know the version to perform the tests
@@ -505,16 +508,19 @@ class RealCouchDBTestCase(util.CouchDBTestCase):
         d.callback(None)
         return d
 
-    def _deleteTestDatabaseIfExists(self):
+    def _deleteTestDatabaseIfExists(self, name=None):
         """
         Helper method to delete the test database, wether it exists or not.
         Used to clean up before running each test.
         """
+        if not name:
+            name = self.db_name
+
         d = defer.Deferred()
         if self.bound:
             d.addCallback(lambda _: self.db.deleteDB())
         else:
-            d.addCallback(lambda _: self.db.deleteDB(self.db_name))
+            d.addCallback(lambda _: self.db.deleteDB(name))
 
         def deleteFailedCb(failure):
             pass
@@ -655,6 +661,40 @@ class RealCouchDBTestCase(util.CouchDBTestCase):
         d.addCallback(self.checkResultOk)
         d.callback(None)
         return d
+
+    def test_slashed(self):
+        """
+        Test createDB/listDB with slash in the name
+        """
+        d = defer.Deferred()
+
+        # Since during setUp we already create the database, and here we are
+        #   specifically testing the creation, we need to delete it first
+        d.addCallback(lambda _: self._deleteTestDatabaseIfExists())
+
+        d.addCallback(lambda _: self.db.createDB('user/test'))
+        d.addCallback(self.checkResultOk)
+
+        d.addCallback(lambda _: self.db.listDB())
+        def listCb(result):
+            self.failUnless('user/test' in result)
+        d.addCallback(listCb)
+
+        d.addCallback(lambda _: self.db.infoDB('user/test'))
+        def infoCb(result):
+            self.assertEquals(result['db_name'], 'user/test')
+        d.addCallback(infoCb)
+
+        d.addCallback(lambda _: self._deleteTestDatabaseIfExists('user/test'))
+
+        d.addCallback(lambda _: self.db.listDB())
+        def listDeletedCb(result):
+            self.failIf('user/test' in result)
+        d.addCallback(listDeletedCb)
+
+        d.callback(None)
+        return d
+
 
     def test_deleteDB(self):
         """
