@@ -124,15 +124,20 @@ class CouchDB(object):
         """
         Initialize the client for given host.
 
-        @param host: address of the server.
-        @type host: C{str}
-
-        @param port: if specified, the port of the server.
-        @type port: C{int}
-
-        @param dbName: if specified, all calls needing a database name will use
-            this one by default.
-        @type dbName: C{str}
+        @param host:     address of the server.
+        @type  host:     C{str}
+        @param port:     if specified, the port of the server.
+        @type  port:     C{int}
+        @param dbName:   if specified, all calls needing a database name will
+                         use this one by default.
+                         Note that only lowercase characters (a-z), digits
+                         (0-9), or any of the characters _, $, (, ), +, -, and
+                         / are allowed.
+        @type  dbName:   C{str}
+        @param username: the username
+        @type  username: C{unicode}
+        @param password: the password
+        @type  password: C{unicode}
         """
         from twisted.internet import reactor
         # t.w.c imports reactor
