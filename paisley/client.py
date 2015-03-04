@@ -366,7 +366,7 @@ class CouchDB(object):
                 'revision is %r instead of unicode' % (type(revision), )
 
         uri = "/%s/%s" % (_namequote(dbName),
-            _namequote(docId).encode('utf-8'))
+            _namequote(docId.encode('utf-8')))
         if revision is not None:
             uri += "?%s" % (urlencode({"rev": revision.encode('utf-8')}), )
         elif full:
@@ -420,7 +420,7 @@ class CouchDB(object):
             body = json.dumps(body)
         if docId is not None:
             d = self.put("/%s/%s" % (_namequote(dbName),
-                _namequote(docId).encode('utf-8')),
+                _namequote(docId.encode('utf-8'))),
                 body, descr='saveDoc')
         else:
             d = self.post("/%s/" % (_namequote(dbName), ), body,
@@ -455,7 +455,7 @@ class CouchDB(object):
 
         return self.delete("/%s/%s?%s" % (
                 _namequote(dbName),
-                _namequote(docId).encode('utf-8'),
+                _namequote(docId.encode('utf-8')),
                 urlencode({'rev': revision.encode('utf-8')}))).addCallback(
                     self.parseResult)
 
@@ -470,7 +470,7 @@ class CouchDB(object):
 
         def buildUri(dbName=dbName, docId=docId, viewId=viewId, kwargs=kwargs):
             return "/%s/_design/%s/_view/%s?%s" % (
-                _namequote(dbName), _namequote(docId).encode('utf-8'),
+                _namequote(dbName), _namequote(docId.encode('utf-8')),
                 viewId, urlencode(kwargs))
 
         # if there is a "keys" argument, remove it from the kwargs
