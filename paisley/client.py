@@ -324,7 +324,8 @@ class CouchDB(object):
             uri += "?%s" % (urlencode(args), )
         return self.get(uri, descr='listDoc').addCallback(self.parseResult)
 
-    def openDoc(self, dbName, docId, revision=None, full=False, attachment=""):
+    def openDoc(self, dbName, docId, revision=None, full=False, conflicts=False,
+                      attachment="", options=None):
         """
         Open a document in a given database.
 
@@ -336,6 +337,11 @@ class CouchDB(object):
         @param full: if specified, return the list of all the revisions of the
             document, along with the document itself.
         @type full: C{bool}
+
+        @param conflicts: if specified, return the list of conflicting revisions
+                         under _conflicts
+        @type conflicts:  C{bool}
+
 
         @param attachment: if specified, return the named attachment from the
             document.
@@ -355,14 +361,23 @@ class CouchDB(object):
                 'revision is %r instead of unicode' % (type(revision), )
 
         uri = "/%s/%s" % (dbName, quote(docId.encode('utf-8')))
-        if revision is not None:
-            uri += "?%s" % (urlencode({"rev": revision.encode('utf-8')}), )
-        elif full:
-            uri += "?%s" % (urlencode({"full": "true"}), )
-        elif attachment:
+
+        if attachment:
             uri += "/%s" % quote(attachment)
             # No parsing
             return self.get(uri, descr='openDoc', isJson=False)
+
+        if not options:
+            options = {}
+
+        if revision is not None:
+            options["rev"] = revision.encode('utf-8')
+        if full:
+            options["full"] = "true"
+        if conflicts:
+            options["conflicts"] = "true"
+
+            uri += "?%s" % (urlencode(options), )
         return self.get(uri, descr='openDoc').addCallback(self.parseResult)
 
     def addAttachments(self, document, attachments):
