@@ -365,8 +365,13 @@ class CouchDB(object):
             assert type(revision) is unicode, \
                 'revision is %r instead of unicode' % (type(revision), )
 
-        uri = "/%s/%s" % (_namequote(dbName),
-            _namequote(docId.encode('utf-8')))
+        docIdUri = docId.encode('utf-8')
+        # on special url's like _design and _local no slash encoding is needed,
+        # and doing so would hit a 301 redirect
+        if not docIdUri.startswith('_'):
+            docIdUri = _namequote(docIdUri)
+
+        uri = "/%s/%s" % (_namequote(dbName), docIdUri)
         if revision is not None:
             uri += "?%s" % (urlencode({"rev": revision.encode('utf-8')}), )
         elif full:
