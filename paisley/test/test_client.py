@@ -1116,6 +1116,62 @@ class UnicodeTestCase(util.CouchDBTestCase):
         return d
 
 
+class SlashedTestCase(util.CouchDBTestCase):
+    # test db's and doc's with slashes in it
+
+    def setUp(self):
+        util.CouchDBTestCase.setUp(self)
+        d = self.db.createDB('db/test')
+        d.addCallback(self.checkResultOk)
+        return d
+
+    def tearDown(self):
+        d = self.db.deleteDB('db/test')
+        d.addCallback(self.checkResultOk)
+        d.addCallback(lambda _: util.CouchDBTestCase.tearDown(self))
+        return d
+
+    def testSlashedId(self):
+        docId = u'thing/test'
+
+        d = defer.Deferred()
+
+        d.addCallback(lambda _: self.db.saveDoc('db/test', {
+            'name': 'name',
+            }, docId=docId))
+
+        def saveDocCb(r):
+            self.assertEquals(r['id'], docId)
+            return self.db.openDoc('db/test', r['id'])
+        d.addCallback(saveDocCb)
+
+        def check(r):
+            self.assertEquals(r[u'name'], u'name')
+            self.assertEquals(type(r['name']), unicode)
+            self.assertEquals(r[u'_id'], docId)
+            self.assertEquals(type(r[u'_id']), unicode)
+            self.assertEquals(type(r[u'_rev']), unicode)
+
+            # open again, with revision
+            return self.db.openDoc('db/test', r['_id'], revision=r['_rev'])
+        d.addCallback(check)
+
+        def checkRevisioned(r):
+            self.assertEquals(r[u'name'], u'name')
+            self.assertEquals(type(r['name']), unicode)
+            self.assertEquals(r[u'_id'], docId)
+            self.assertEquals(type(r[u'_id']), unicode)
+            self.assertEquals(type(r[u'_rev']), unicode)
+            return r
+        d.addCallback(checkRevisioned)
+
+        d.addCallback(lambda r: self.db.deleteDoc(
+            'db/test', r[u'_id'], r[u'_rev']))
+
+        d.callback(None)
+        return d
+
+
 class ResponseReceiverTestCase(TestCase):
 
     def test_utf8Receiving(self):
